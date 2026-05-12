@@ -110,6 +110,14 @@ RUN /tmp/build-scripts/install-cups.sh
 RUN /tmp/build-scripts/install-escpr2.sh
 
 # ────────────────────────────────────────────────────────────────────
+# Canon CAPT (LBP2900/LBP2900B) 开源驱动：从源码编译安装。
+# ────────────────────────────────────────────────────────────────────
+# issue #43。基于逆向工程的开源 CAPT 协议实现（GPL-3.0），覆盖 Canon LBP2900/
+# LBP2900B 等走 CAPT 协议的旧款 Canon 激光打印机。纯 C 源码，全架构编译。
+# 详见 scripts/install-canon-capt.sh
+RUN /tmp/build-scripts/install-canon-capt.sh
+
+# ────────────────────────────────────────────────────────────────────
 # 清理编译工具链。
 # ────────────────────────────────────────────────────────────────────
 # 详见 scripts/cleanup-build.sh
