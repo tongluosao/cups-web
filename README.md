@@ -75,8 +75,11 @@
 | Epson 国行专有驱动（`epson-inkjet-printer-201601w` + `epson-printer-utility`） | 1.0.1 / 1.2.2 | **仅 amd64** | Epson 中国区早期机型 L380、L455 等（原厂墨水检测/尺寸预设更完整） |
 | Canon UFR II / UFRII LT 官方驱动（`cnrdrvcups-ufr2-uk`） | 6.30-1.07 | amd64 / arm64 | i-SENSYS LBP/MF、imageCLASS、imageRUNNER (iR)、imagePRESS (iPR) 等所有走 UFR II / UFRII LT 协议的 Canon 激光机（[issue #34](https://github.com/hanxi/cups-web/issues/34)） |
 | 柯尼卡美能达 bizhub 3000MF 黑白激光驱动（`bizhub3000mfpdrvchn`） | 1.0.0-1 | amd64 / arm64 | Konica Minolta bizhub 3000MF 多功能一体机（[issue #35](https://github.com/hanxi/cups-web/issues/35)） |
+| HP LaserJet 1020 / 1020 Plus 固件 + A4-default PPD | sihp1020.dl | 全架构 | HP 1020 系列 host-based 打印机：自动下载固件 `sihp1020.dl` 到 foo2zjs 路径，并派生一份默认 A4 纸张的 PPD（[issue #40](https://github.com/hanxi/cups-web/issues/40)、[issue #48](https://github.com/hanxi/cups-web/issues/48)） |
 
 > 💡 表中标注为「仅 amd64」或「amd64 / arm64」的驱动，在未覆盖的架构（如树莓派 armv7）上会被脚本静默 `skip`，不影响其他驱动的使用。如果你的打印机不在以上列表中，仍可访问 CUPS 管理界面（<http://localhost:631>）通过自带的 PPD 库或上传自定义 PPD 添加。
+>
+> 📱 **苹果 AirPrint 选不到 A4 纸**（issue #48）：foo2zjs 上游 HP 1020 PPD 的默认纸张是 Letter，iPhone 通过 AirPrint 连接时按 `media-default` 渲染首屏，A4 会被折叠/隐藏。容器启动时 `entrypoint.sh` 会自动把已添加的 HP 1020 打印机 PPD 默认纸张从 Letter 切到 A4（备份保留为 `*.bak-cupsweb-issue48`）；新加打印机时也可以直接选 CUPS 列表里的 `HP LaserJet 1020 Foomatic/foo2zjs-z1 A4 (cups-web)` 变体。
 
 ### 用户与权限
 
