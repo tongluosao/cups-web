@@ -52,11 +52,18 @@ FW_FILENAME="sihp1020.dl"
 FW_MIRROR_URL="https://github.com/hanxi/cups-web/releases/download/cups-driver/${FW_FILENAME}"
 FW_INSTALL_DIR="/usr/share/foo2zjs/firmware"
 
-PYPPD_ARCHIVE="/usr/share/cups/model/foo2zjs.ppd-compiled"
 PPD_INSTALL_DIR="/usr/share/cups/model/HP"
 PPD_INSTALL_NAME="HP-LaserJet_1020-foo2zjs-A4.ppd"
-# Trixie 起 printer-driver-foo2zjs-common 改成铺原始 PPD（不再 pyppd 打包），
-# 候选路径按优先级列出，找到第一个就用。
+# dh_pyppd 生成的可执行 PPD archive 候选路径，按优先级排列。
+# bookworm/trixie 当前使用 /usr/lib/cups/driver/foo2zjs（CUPS driver 接口标准位置，
+# dh_pyppd --archive-filename=foo2zjs 的默认输出路径）；老版本 Debian 曾把它放在
+# /usr/share/cups/model/foo2zjs.ppd-compiled。两条路径都是同一种 pyppd 可执行 archive，
+# 调用接口完全一致：`<archive> cat HP-LaserJet_1020.ppd` 抽内容。
+PYPPD_ARCHIVES=(
+    /usr/lib/cups/driver/foo2zjs
+    /usr/share/cups/model/foo2zjs.ppd-compiled
+)
+# 极个别下游分发可能改铺裸 PPD，作为兜底也扫一下常见目录。
 PPD_SEARCH_DIRS=(
     /usr/share/cups/model/foo2zjs
     /usr/share/cups/model
@@ -83,21 +90,28 @@ echo "[hp-laserjet1020] installed firmware: ${FW_INSTALL_DIR}/${FW_FILENAME} ($(
 # ────────────────────────────────────────────────────────────────────
 # 派生 A4-default PPD（issue #48）
 # ────────────────────────────────────────────────────────────────────
-# foo2zjs 的 PPD 在不同 Debian 版本里有两种打包方式：
-#   ① 老版本（dh_pyppd）：/usr/share/cups/model/foo2zjs.ppd-compiled 单文件可执行
-#      archive；调用 `archive cat HP-LaserJet_1020.ppd` 抽内容。见
-#      https://github.com/OpenPrinting/pyppd 的 runner.cat 实现：
-#      输入会被规范化成 "0/<filename>"，所以传 "HP-LaserJet_1020.ppd" 即可。
-#   ② Trixie 起：直接铺到 /usr/share/cups/model/foo2zjs/HP-LaserJet_1020.ppd[.gz]
-#      或类似路径（见 PPD_SEARCH_DIRS）。
+# foo2zjs 的 PPD 在 Debian 上由 dh_pyppd 打成单文件可执行 archive
+# （pyppd-ppdfile 模板：`<archive> cat HP-LaserJet_1020.ppd` 抽内容；
+# 见 https://github.com/OpenPrinting/pyppd 的 runner.cat 实现，
+# 输入会被规范化成 "0/<filename>"，所以传 "HP-LaserJet_1020.ppd" 即可）。
+# 不同版本 Debian 把 archive 放在不同路径——按 PYPPD_ARCHIVES 顺序探测。
+# 罕见情况下下游可能改铺裸 PPD，再退化到 PPD_SEARCH_DIRS 兜底。
 #
 # 注意：HP-LaserJet_1020.ppd 是 foo2zjs 源码的文件名（PPD/HP-LaserJet_1020.ppd），
-# 不是 NickName。两种打包方式如果都拿不到非空内容会立即 fail-fast。
+# 不是 NickName。所有路径都拿不到非空内容会立即 fail-fast。
 
 PPD_TMP="$(mktemp /tmp/hp1020-a4.ppd.XXXXXX)"
 trap 'rm -f "${PPD_TMP}"' EXIT
 
-if [ -x "${PYPPD_ARCHIVE}" ]; then
+PYPPD_ARCHIVE=""
+for cand in "${PYPPD_ARCHIVES[@]}"; do
+    if [ -x "${cand}" ]; then
+        PYPPD_ARCHIVE="${cand}"
+        break
+    fi
+done
+
+if [ -n "${PYPPD_ARCHIVE}" ]; then
     echo "[hp-laserjet1020] extracting HP-LaserJet_1020.ppd from pyppd archive ${PYPPD_ARCHIVE}"
     "${PYPPD_ARCHIVE}" cat HP-LaserJet_1020.ppd > "${PPD_TMP}"
 else
@@ -111,7 +125,7 @@ else
         done
     done
     if [ -z "${PPD_SRC}" ]; then
-        echo "[hp-laserjet1020] FATAL: HP-LaserJet_1020.ppd not found in pyppd archive nor in ${PPD_SEARCH_DIRS[*]}"
+        echo "[hp-laserjet1020] FATAL: HP-LaserJet_1020.ppd not found in pyppd archives (${PYPPD_ARCHIVES[*]}) nor in ${PPD_SEARCH_DIRS[*]}"
         exit 1
     fi
     echo "[hp-laserjet1020] using PPD source ${PPD_SRC}"
