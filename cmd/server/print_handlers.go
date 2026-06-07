@@ -42,6 +42,9 @@ func printHandler(w http.ResponseWriter, r *http.Request) {
 		writeJSONError(w, http.StatusBadRequest, "missing printer field")
 		return
 	}
+	if err := ensurePrinterAllowed(r.Context(), printer); handlePrinterAccessError(w, err) {
+		return
+	}
 
 	isDuplex := r.FormValue("duplex") == "true"
 	isColor := r.FormValue("color") == "true"

@@ -73,10 +73,13 @@
 
     <UCard>
       <template #header>
-        <h2 class="text-xl font-bold flex items-center gap-2">
-          <UIcon name="i-lucide-settings" class="w-5 h-5" />
-          系统设置
-        </h2>
+        <div class="flex items-center justify-between gap-3">
+          <h2 class="text-xl font-bold flex items-center gap-2">
+            <UIcon name="i-lucide-settings" class="w-5 h-5" />
+            系统设置
+          </h2>
+          <UButton variant="ghost" size="xs" icon="i-lucide-refresh-cw" :loading="loadingPrinters" @click="loadAdminPrinters">刷新打印机</UButton>
+        </div>
       </template>
       <div class="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
         <div>
@@ -88,6 +91,51 @@
         </div>
       </div>
       <div class="text-sm text-muted mt-2">自动清理会删除打印记录与文件，并压缩数据库。</div>
+
+      <div class="mt-5 border-t border-default pt-4 space-y-3">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div>
+            <h3 class="font-semibold flex items-center gap-2">
+              <UIcon name="i-lucide-printer" class="w-4 h-4" />
+              可见打印机
+            </h3>
+            <p class="text-sm text-muted mt-1">
+              {{ settings.allowedPrinterUris.length === 0 ? '当前未限制，所有打印机可见。' : `当前仅允许 ${settings.allowedPrinterUris.length} 台打印机。` }}
+            </p>
+          </div>
+          <div class="flex flex-wrap gap-2">
+            <UButton size="xs" variant="outline" icon="i-lucide-check-check" @click="selectAllPrinters" :disabled="adminPrinters.length === 0">全选</UButton>
+            <UButton size="xs" variant="ghost" color="neutral" icon="i-lucide-eraser" @click="clearAllowedPrinters">清空限制</UButton>
+          </div>
+        </div>
+
+        <UInput v-model="printerSearch" icon="i-lucide-search" placeholder="搜索打印机名称或 URI" />
+
+        <div v-if="loadingPrinters" class="py-6 text-center text-sm text-muted">
+          <UIcon name="i-lucide-loader-circle" class="w-5 h-5 animate-spin mx-auto mb-1" />
+          正在加载打印机
+        </div>
+        <div v-else-if="filteredAdminPrinters.length === 0" class="py-6 text-center text-sm text-muted">
+          没有匹配的打印机
+        </div>
+        <div v-else class="grid grid-cols-1 md:grid-cols-2 gap-2 max-h-80 overflow-y-auto pr-1">
+          <label
+            v-for="printer in filteredAdminPrinters"
+            :key="printer.uri"
+            class="flex items-start gap-3 rounded-lg border border-default p-3 hover:bg-elevated/60 cursor-pointer"
+          >
+            <UCheckbox
+              :model-value="isPrinterAllowed(printer.uri)"
+              class="mt-0.5"
+              @update:model-value="togglePrinter(printer.uri, $event)"
+            />
+            <span class="min-w-0">
+              <span class="block text-sm font-medium truncate">{{ printer.name }}</span>
+              <span class="block text-xs text-muted break-all">{{ printer.uri }}</span>
+            </span>
+          </label>
+        </div>
+      </div>
     </UCard>
 
     <UModal v-model:open="showDeleteModal">
@@ -126,10 +174,13 @@ const form = ref({
 })
 const printFilters = ref({ username: '', start: '', end: '' })
 const printRecords = ref([])
-const settings = ref({ retentionDays: '' })
+const settings = ref({ retentionDays: '', allowedPrinterUris: [] })
+const adminPrinters = ref([])
+const printerSearch = ref('')
 
 const savingUser = ref(false)
 const savingSettings = ref(false)
+const loadingPrinters = ref(false)
 const deletingUserId = ref(null)
 const pendingDeleteUser = ref(null)
 const showDeleteModal = ref(false)
@@ -160,6 +211,15 @@ const printColumns = [
   { accessorKey: 'status', header: '状态' },
   { id: 'download', header: '下载' }
 ]
+
+const filteredAdminPrinters = computed(() => {
+  const q = printerSearch.value.trim().toLowerCase()
+  if (!q) return adminPrinters.value
+  return adminPrinters.value.filter(p =>
+    (p.name || '').toLowerCase().includes(q) ||
+    (p.uri || '').toLowerCase().includes(q)
+  )
+})
 
 function validateForm() {
   formErrors.value = {}
@@ -304,13 +364,55 @@ async function loadSettings() {
   }
   const data = await resp.json()
   settings.value.retentionDays = String(data.retentionDays || 0)
+  settings.value.allowedPrinterUris = Array.isArray(data.allowedPrinterUris) ? data.allowedPrinterUris : []
+}
+
+async function loadAdminPrinters() {
+  loadingPrinters.value = true
+  try {
+    const resp = await fetch('/api/admin/printers', { credentials: 'include' })
+    if (!resp.ok) {
+      if (resp.status === 401) emit('logout')
+      return
+    }
+    adminPrinters.value = await resp.json()
+  } finally {
+    loadingPrinters.value = false
+  }
+}
+
+function isPrinterAllowed(uri) {
+  if (settings.value.allowedPrinterUris.length === 0) return true
+  return settings.value.allowedPrinterUris.includes(uri)
+}
+
+function togglePrinter(uri, checked) {
+  const initial = settings.value.allowedPrinterUris.length === 0
+    ? adminPrinters.value.map(p => p.uri)
+    : settings.value.allowedPrinterUris
+  const set = new Set(initial)
+  if (checked) {
+    set.add(uri)
+  } else {
+    set.delete(uri)
+  }
+  settings.value.allowedPrinterUris = Array.from(set)
+}
+
+function selectAllPrinters() {
+  settings.value.allowedPrinterUris = adminPrinters.value.map(p => p.uri)
+}
+
+function clearAllowedPrinters() {
+  settings.value.allowedPrinterUris = []
 }
 
 async function saveSettings() {
   savingSettings.value = true
   try {
     const payload = {
-      retentionDays: parseInt(settings.value.retentionDays || '0', 10)
+      retentionDays: parseInt(settings.value.retentionDays || '0', 10),
+      allowedPrinterUris: settings.value.allowedPrinterUris
     }
     const resp = await fetch('/api/admin/settings', {
       method: 'PUT',
@@ -335,6 +437,6 @@ async function saveSettings() {
 }
 
 onMounted(async () => {
-  await Promise.all([loadUsers(), loadPrintRecords(), loadSettings()])
+  await Promise.all([loadUsers(), loadPrintRecords(), loadSettings(), loadAdminPrinters()])
 })
 </script>

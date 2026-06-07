@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"flag"
 	"fmt"
 	"log"
@@ -13,7 +12,6 @@ import (
 
 	"cups-web/frontend"
 	"cups-web/internal/auth"
-	"cups-web/internal/ipp"
 	"cups-web/internal/middleware"
 	"cups-web/internal/server"
 	"cups-web/internal/store"
@@ -79,22 +77,7 @@ func main() {
 	protected.Use(middleware.RequireSession)
 	protected.Use(middleware.ValidateCSRF)
 	protected.HandleFunc("/me", MeHandler).Methods("GET")
-	protected.HandleFunc("/printers", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-
-		cupsHost := os.Getenv("CUPS_HOST")
-		if cupsHost == "" {
-			cupsHost = "localhost"
-		}
-
-		printers, err := ipp.ListPrinters(cupsHost)
-		if err != nil {
-			http.Error(w, "failed to list printers: "+err.Error(), http.StatusInternalServerError)
-			return
-		}
-
-		json.NewEncoder(w).Encode(printers)
-	}).Methods("GET")
+	protected.HandleFunc("/printers", printersHandler).Methods("GET")
 	protected.HandleFunc("/print", printHandler).Methods("POST")
 	protected.HandleFunc("/convert", convertHandler).Methods("POST")
 	protected.HandleFunc("/estimate", estimateHandler).Methods("POST")
@@ -111,6 +94,7 @@ func main() {
 	admin.HandleFunc("/users/{id:[0-9]+}", adminUpdateUserHandler).Methods("PUT")
 	admin.HandleFunc("/users/{id:[0-9]+}", adminDeleteUserHandler).Methods("DELETE")
 	admin.HandleFunc("/print-records", adminPrintRecordsHandler).Methods("GET")
+	admin.HandleFunc("/printers", adminPrintersHandler).Methods("GET")
 	admin.HandleFunc("/settings", adminGetSettingsHandler).Methods("GET")
 	admin.HandleFunc("/settings", adminUpdateSettingsHandler).Methods("PUT")
 

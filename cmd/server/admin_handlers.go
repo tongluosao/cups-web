@@ -44,7 +44,8 @@ type adminUserResponse struct {
 }
 
 type settingsPayload struct {
-	RetentionDays *int64 `json:"retentionDays"`
+	RetentionDays      *int64   `json:"retentionDays"`
+	AllowedPrinterURIs []string `json:"allowedPrinterUris"`
 }
 
 func adminListUsersHandler(w http.ResponseWriter, r *http.Request) {
@@ -231,19 +232,28 @@ func adminDeleteUserHandler(w http.ResponseWriter, r *http.Request) {
 
 func adminGetSettingsHandler(w http.ResponseWriter, r *http.Request) {
 	var retention int64
+	var allowedPrinterURIs []string
 	err := appStore.WithTx(r.Context(), true, func(tx *sql.Tx) error {
 		val, err := store.GetSettingInt(r.Context(), tx, store.SettingRetentionDays, 0)
 		if err != nil {
 			return err
 		}
 		retention = val
+		printers, err := getPrinterAllowlist(r.Context(), tx)
+		if err != nil {
+			return err
+		}
+		allowedPrinterURIs = printers
 		return nil
 	})
 	if err != nil {
 		writeJSONError(w, http.StatusInternalServerError, "failed to load settings")
 		return
 	}
-	writeJSON(w, map[string]int64{"retentionDays": retention})
+	writeJSON(w, map[string]interface{}{
+		"retentionDays":      retention,
+		"allowedPrinterUris": allowedPrinterURIs,
+	})
 }
 
 func adminUpdateSettingsHandler(w http.ResponseWriter, r *http.Request) {
@@ -258,6 +268,14 @@ func adminUpdateSettingsHandler(w http.ResponseWriter, r *http.Request) {
 				return errors.New("invalid retentionDays")
 			}
 			if err := store.SetSettingInt(r.Context(), tx, store.SettingRetentionDays, *payload.RetentionDays); err != nil {
+				return err
+			}
+		}
+		if payload.AllowedPrinterURIs != nil {
+			if err := validatePrinterAllowlist(r.Context(), payload.AllowedPrinterURIs); err != nil {
+				return err
+			}
+			if err := setPrinterAllowlist(r.Context(), tx, payload.AllowedPrinterURIs); err != nil {
 				return err
 			}
 		}

@@ -2,7 +2,10 @@ import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import ui from '@nuxt/ui/vite'
 
+const cdnBase = (process.env.VITE_CDN_BASE_URL || '').trim()
+
 export default defineConfig({
+  base: cdnBase ? './' : '/',
   plugins: [
     vue(),
     ui({
@@ -14,6 +17,7 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     emptyOutDir: true,
+    manifest: !!cdnBase,
     rollupOptions: {
       output: {
         manualChunks(id) {
@@ -25,6 +29,9 @@ export default defineConfig({
           }
           if (id.includes('node_modules/pdfjs-dist')) {
             return 'pdf-vendor'
+          }
+          if (id.includes('node_modules/heic2any')) {
+            return 'heic-vendor'
           }
         }
       }

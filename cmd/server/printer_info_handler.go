@@ -18,6 +18,9 @@ func printerInfoHandler(w http.ResponseWriter, r *http.Request) {
 		writeJSONError(w, http.StatusBadRequest, "missing uri parameter")
 		return
 	}
+	if err := ensurePrinterAllowed(r.Context(), uri); handlePrinterAccessError(w, err) {
+		return
+	}
 
 	log.Printf("[printer-info] calling GetPrinterAttributes for uri=%q", uri)
 	info, err := ipp.GetPrinterAttributes(uri)

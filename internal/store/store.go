@@ -16,7 +16,8 @@ const (
 )
 
 const (
-	SettingRetentionDays = "retention_days"
+	SettingRetentionDays   = "retention_days"
+	SettingPrinterAllowlist = "printer_allowlist"
 )
 
 type Store struct {

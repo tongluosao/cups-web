@@ -6,8 +6,11 @@
   "scripts": {
     "predev": "node scripts/copy-pdfjs-assets.js",
     "prebuild": "node scripts/copy-pdfjs-assets.js",
+    "prebuild:cdn": "node scripts/copy-pdfjs-assets.js",
     "dev": "vite",
     "build": "vite build",
+    "build:cdn": "vite build && node scripts/make-cdn-loader.js",
+    "build:cdn-only": "vite build && node scripts/make-cdn-loader.js",
     "preview": "vite preview"
   },
   "dependencies": {

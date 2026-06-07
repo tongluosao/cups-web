@@ -25,6 +25,11 @@ import pdfjsWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker
 
+const pdfjsAssetBase = (() => {
+  const base = window.__CUPS_WEB_ASSET_BASE__ || '/'
+  return base.endsWith('/') ? base : base + '/'
+})()
+
 const props = defineProps({
   src: { type: String, required: true }
 })
@@ -129,9 +134,9 @@ async function renderPdf() {
     // - isEvalSupported=false：CSP/严格 Worker 环境下避免 eval 被拦截
     const doc = await pdfjsLib.getDocument({
       url: props.src,
-      cMapUrl: '/pdfjs/cmaps/',
+      cMapUrl: `${pdfjsAssetBase}pdfjs/cmaps/`,
       cMapPacked: true,
-      standardFontDataUrl: '/pdfjs/standard_fonts/',
+      standardFontDataUrl: `${pdfjsAssetBase}pdfjs/standard_fonts/`,
       disableFontFace: false,
       useSystemFonts: false,
       isEvalSupported: false
