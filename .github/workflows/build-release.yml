@@ -61,10 +61,13 @@ jobs:
           bun-version: latest
 
       - name: Build frontend
+        env:
+          VITE_CDN_BASE_URL: https://cdn.jsdelivr.net/gh/tongluosao/cups-web@cdn-v0.1.6/
+          CUPS_WEB_CDN_ONLY: "true"
         run: |
           cd frontend
           bun install
-          bunx vite build
+          bun run build:cdn-only
 
       - name: Resolve version
         id: ver
