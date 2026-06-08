@@ -42,12 +42,14 @@ jobs:
           bun run build:cdn
           bun run prepare:cdn-branch
           CUPS_WEB_CDN_ONLY=true bun run prune:cdn-only
+          ls -la ../cdn-dist-output
+          ls -la dist
 
       - name: Upload CDN branch files
         uses: actions/upload-artifact@v4
         with:
           name: cdn-dist
-          path: .cdn-dist
+          path: cdn-dist-output
 
       - name: Upload embedded frontend dist
         uses: actions/upload-artifact@v4

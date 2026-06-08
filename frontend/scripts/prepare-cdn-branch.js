@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url'
 const scriptDir = dirname(fileURLToPath(import.meta.url))
 const frontendRoot = resolve(scriptDir, '..')
 const distDir = resolve(frontendRoot, 'dist')
-const outDir = resolve(frontendRoot, '..', '.cdn-dist')
+const outDir = resolve(frontendRoot, '..', 'cdn-dist-output')
 
 const entries = [
   'assets',
