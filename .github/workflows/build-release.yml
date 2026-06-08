@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - '*'
+      - '!cdn-*'
     tags:
       - 'v*'
   workflow_dispatch:
@@ -12,9 +13,83 @@ permissions:
   contents: write
 
 jobs:
+  frontend-assets:
+    name: Build frontend assets
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Resolve CDN ref
+        id: cdn
+        run: |
+          CDN_REF="cdn-${{ github.ref_name }}"
+          echo "ref=$CDN_REF" >> "$GITHUB_OUTPUT"
+          echo "base=https://cdn.jsdelivr.net/gh/${{ github.repository }}@$CDN_REF/" >> "$GITHUB_OUTPUT"
+          echo "Using CDN_REF=$CDN_REF"
+
+      - name: Build CDN assets and cdn-only dist
+        env:
+          VITE_CDN_BASE_URL: ${{ steps.cdn.outputs.base }}
+        run: |
+          cd frontend
+          bun install
+          bun run build:cdn
+          bun run prepare:cdn-branch
+          CUPS_WEB_CDN_ONLY=true bun run prune:cdn-only
+
+      - name: Upload CDN branch files
+        uses: actions/upload-artifact@v4
+        with:
+          name: cdn-dist
+          path: .cdn-dist
+
+      - name: Upload embedded frontend dist
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-dist
+          path: frontend/dist
+
+  publish-cdn:
+    name: Publish CDN branch
+    runs-on: ubuntu-latest
+    needs: frontend-assets
+    if: github.event_name == 'push' && github.ref_type == 'tag'
+    steps:
+      - name: Resolve CDN ref
+        id: cdn
+        run: |
+          CDN_REF="cdn-${{ github.ref_name }}"
+          echo "ref=$CDN_REF" >> "$GITHUB_OUTPUT"
+          echo "Using CDN_REF=$CDN_REF"
+
+      - name: Download CDN branch files
+        uses: actions/download-artifact@v4
+        with:
+          name: cdn-dist
+          path: cdn-dist
+
+      - name: Publish CDN branch
+        run: |
+          cd cdn-dist
+          git init
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -b "${{ steps.cdn.outputs.ref }}"
+          git add .
+          git commit -m "Publish CDN assets for ${{ github.ref_name }}"
+          git remote add origin "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git"
+          git push origin HEAD:refs/heads/${{ steps.cdn.outputs.ref }} --force
+
   build:
     name: Build binaries
     runs-on: ubuntu-latest
+    needs: frontend-assets
     strategy:
       matrix:
         include:
@@ -55,19 +130,18 @@ jobs:
           # 启动崩溃。详见 issue #49。
           go-version: '1.26.1'
 
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
+      - name: Download embedded frontend dist
+        uses: actions/download-artifact@v4
         with:
-          bun-version: latest
+          name: frontend-dist
+          path: frontend/dist
 
-      - name: Build frontend
-        env:
-          VITE_CDN_BASE_URL: https://cdn.jsdelivr.net/gh/tongluosao/cups-web@cdn-v0.1.6/
-          CUPS_WEB_CDN_ONLY: "true"
+      - name: Validate embedded frontend dist
         run: |
-          cd frontend
-          bun install
-          bun run build:cdn-only
+          test -f frontend/dist/index.html
+          test -f frontend/dist/cdn-manifest.json
+          test ! -d frontend/dist/assets
+          test ! -d frontend/dist/pdfjs
 
       - name: Resolve version
         id: ver
@@ -103,8 +177,10 @@ jobs:
   release:
     name: Create Release
     runs-on: ubuntu-latest
-    needs: build
-    if: github.event_name == 'push'
+    needs:
+      - publish-cdn
+      - build
+    if: github.event_name == 'push' && github.ref_type == 'tag'
 
     steps:
       - name: Checkout
@@ -114,6 +190,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           path: artifacts
+          pattern: cups-web-*
           merge-multiple: true
 
       - name: Delete existing release if exists
