@@ -135,7 +135,8 @@ await writeFile(resolve(distDir, 'index.html'), html)
 if (cdnOnly) {
   await Promise.all([
     rm(resolve(distDir, 'assets'), { recursive: true, force: true }),
-    rm(resolve(distDir, 'pdfjs'), { recursive: true, force: true })
+    rm(resolve(distDir, 'pdfjs'), { recursive: true, force: true }),
+    rm(resolve(distDir, '.vite'), { recursive: true, force: true })
   ])
 }
 

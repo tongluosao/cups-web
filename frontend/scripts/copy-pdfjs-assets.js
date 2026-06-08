@@ -28,6 +28,10 @@ async function copyDir(name) {
     console.warn(`[pdfjs] source not found, skipped: ${src}`)
     return
   }
+  if (await ensureSrcExists(dst)) {
+    console.log(`[pdfjs] ${name} already exists, skipped`)
+    return
+  }
   await cp(src, dst, { recursive: true, force: true })
   console.log(`[pdfjs] copied ${name} -> ${dst}`)
 }

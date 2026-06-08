@@ -11,6 +11,7 @@
     "build": "vite build",
     "build:cdn": "vite build && node scripts/make-cdn-loader.js",
     "build:cdn-only": "vite build && node scripts/make-cdn-loader.js",
+    "prepare:cdn-branch": "node scripts/prepare-cdn-branch.js",
     "preview": "vite preview"
   },
   "dependencies": {
